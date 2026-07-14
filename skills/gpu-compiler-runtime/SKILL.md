@@ -9,6 +9,10 @@ description: Load this skill and follow it when optimizing compiled graphs, fusi
 - Parent/orchestrator: [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md)
 - [gpu-performance-evidence](../gpu-performance-evidence/SKILL.md) — load first to distinguish launch/runtime overhead from kernel execution cost
 - [gpu-memory-fusion-layout](../gpu-memory-fusion-layout/SKILL.md) — load when the compiler graph materializes buffers or layout conversions
+- [gpu-resource-lifetime-allocation](../gpu-resource-lifetime-allocation/SKILL.md) — load for graph-wide liveness, workspace, aliasing, or rematerialization policy
+- [gpu-virtual-memory-fragmentation](../gpu-virtual-memory-fragmentation/SKILL.md) — load for VMM policy, contiguity, page granularity, and fragmentation
+- [gpu-memory-tiering-migration](../gpu-memory-tiering-migration/SKILL.md) — load for cross-tier placement, residency, and migration policy
+- [gpu-memory-scheduling](../gpu-memory-scheduling/SKILL.md) — load for the joint logical order of compute and memory actions
 - [gpu-kernel-execution](../gpu-kernel-execution/SKILL.md) — load when generated kernels themselves are hot
 - [gpu-training-autodiff](../gpu-training-autodiff/SKILL.md) — load when compiled backward graphs or training steps are involved
 - [gpu-optimization-validation](../gpu-optimization-validation/SKILL.md) — load to separate cold compile time, warm steady state, and end-to-end results
@@ -20,6 +24,8 @@ Load linked skills only when their trigger applies. Do not duplicate their full 
 A GPU application can be slow even when every individual kernel is good. The missing performance may live in graph breaks, recompilation, launch gaps, allocation churn, host-device synchronization, transfer staging, or communication.
 
 Treat the compiler/runtime pipeline as a second program: inspect what graph was captured, what kernels were emitted, how often they launch, and how the host feeds the device.
+
+Keep concrete compiler, capture, queue, stream, event, allocator, mapping, transfer, and communication mechanisms here. Hand logical lifetime, VMM/backing policy, tier placement, and joint memory-action timing to their specialists, then verify that the runtime can realize the selected policy.
 
 ## Framework compiler checklist
 
@@ -117,11 +123,15 @@ Track:
 - workspace stability across shapes;
 - hidden copies caused by contiguity/layout conversion.
 
+Use this section to diagnose the runtime mechanism and capture constraints. Route graph-wide liveness, transient alias eligibility, workspace sharing, and rematerialization policy to `gpu-resource-lifetime-allocation`. Route capacity-versus-allocatability, page granularity, virtual contiguity, stitching, or compaction to `gpu-virtual-memory-fragmentation`.
+
 ## Host↔device and device↔device transfers
 
 Minimize transfers across lower-bandwidth boundaries and overlap them with compute when the hardware/runtime supports it. Overlap requires actual independence and appropriate pinned/page-locked or device-accessible staging where applicable.
 
 Do not introduce extra copies just to make an API asynchronous. Measure the total path, including staging and synchronization. Unified/managed memory can simplify programming but may incur migration; profile page movement and prefetch behavior for oversubscribed workloads.
+
+Route the choice of target tier, residency policy, prefetch/offload trigger, replication, and migration to `gpu-memory-tiering-migration`. Keep API capability, registration, mapping, queue submission, and synchronization implementation here.
 
 ## Multi-GPU runtime
 
@@ -197,6 +207,8 @@ Check whether operations are independent before attempting overlap. Then verify:
 - overlap improves the critical path rather than merely moving work off the main stream.
 
 Overlapping two operations that contend for the same saturated resource may not improve wall time. Measure the critical path.
+
+When the decision requires jointly ordering compute, allocation, mapping, transfer, rematerialization, barriers, and reclamation, load `gpu-memory-scheduling`. This skill should return which concrete mechanisms are supported, what constraints they insert, and the realized order; it should not silently replace the scheduling policy with a convenient queue order.
 
 ## Runtime acceptance
 

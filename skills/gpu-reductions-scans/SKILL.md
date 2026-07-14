@@ -9,6 +9,7 @@ description: Load this skill and follow it when optimizing GPU reductions, scans
 - Parent/orchestrator: [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md)
 - [gpu-numerical-safety](../gpu-numerical-safety/SKILL.md) — load for reduction order, floating-point error, masks, and boundary semantics
 - [gpu-memory-fusion-layout](../gpu-memory-fusion-layout/SKILL.md) — load to remove full-size intermediates or fuse compact partials
+- [gpu-persistent-state](../gpu-persistent-state/SKILL.md) — load when state survives independent invocations and needs ownership, mutation, snapshots, reconstruction, or cleanup semantics
 - [gpu-kernel-execution](../gpu-kernel-execution/SKILL.md) — load for subgroup/workgroup reductions, synchronization, and resource tuning
 - [gpu-training-autodiff](../gpu-training-autodiff/SKILL.md) — load when the reduction participates in backward or gradient accumulation
 - [gpu-optimization-validation](../gpu-optimization-validation/SKILL.md) — load for boundary matrices, error trends, and performance acceptance
@@ -85,6 +86,8 @@ Good candidates: row/column sums, norms, max/min, log-sum-exp, mean/variance, hi
 ## Streaming state
 
 Use streaming state for operations that can be updated incrementally.
+
+Keep this section scoped to state carried within one algorithm, invocation, or explicitly chunked execution. If the state survives independent calls, acquires an external owner or retention scope, supports snapshots or branches, or needs cleanup beyond the algorithm boundary, route its contract to `gpu-persistent-state`.
 
 Candidate state: running sum, max/min, log-sum-exp, norm, mean, variance, count, histogram, prefix state, online normalisation statistics.
 
@@ -226,4 +229,5 @@ A reduction/scan optimization must pass:
 - numerical error characterization for changed order;
 - representative lengths including non-divisible tails;
 - isolated and end-to-end timing;
+- the algorithm-local versus cross-call state boundary is explicit;
 - failure-case documentation and fallback rules.

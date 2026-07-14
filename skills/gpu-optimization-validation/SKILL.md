@@ -10,6 +10,12 @@ description: Load this skill and follow it when turning GPU optimizations into r
 - [gpu-performance-evidence](../gpu-performance-evidence/SKILL.md) — load for baseline methodology and bottleneck evidence
 - [gpu-numerical-safety](../gpu-numerical-safety/SKILL.md) — load for C2+ error reports and semantic acceptance
 - [gpu-training-autodiff](../gpu-training-autodiff/SKILL.md) — load when the path is used for training
+- [gpu-resource-lifetime-allocation](../gpu-resource-lifetime-allocation/SKILL.md) — load when accepting a lifetime, allocation, workspace, aliasing, or rematerialization policy
+- [gpu-virtual-memory-fragmentation](../gpu-virtual-memory-fragmentation/SKILL.md) — load when accepting a backing, VMM, fragmentation, or allocatability policy
+- [gpu-memory-tiering-migration](../gpu-memory-tiering-migration/SKILL.md) — load when accepting a placement, residency, prefetch, offload, replication, or migration policy
+- [gpu-state-reuse-eviction](../gpu-state-reuse-eviction/SKILL.md) — load when accepting state reuse, sharing, admission, retention, invalidation, or logical eviction
+- [gpu-persistent-state](../gpu-persistent-state/SKILL.md) — load when accepting a cross-call state contract
+- [gpu-memory-scheduling](../gpu-memory-scheduling/SKILL.md) — load when accepting a joint compute/memory schedule
 - [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md) — return to orchestration when validation reveals a new bottleneck
 
 Load linked skills only when their trigger applies. Do not duplicate their full workflow here.
@@ -92,6 +98,8 @@ Decision:
 - Rejected alternatives: <what else was considered and why dismissed>
 - Remaining risk: <open numerical / performance concerns>
 ```
+
+For resource or runtime-state changes, append only the applicable specialist record. Do not force lifetime, backing, residency, reuse, persistent-state, and scheduling fields onto an ordinary kernel optimization.
 
 ---
 
@@ -207,6 +215,23 @@ A change may be marked:
 - **Reject** — correctness risk, end-to-end regression, excessive memory/compile cost, or unsupported bottleneck hypothesis.
 - **Need more evidence** — measurement cannot yet distinguish the hypothesis from noise or confounding factors.
 
+## Conditional resource and state validation
+
+Apply each row only when its specialist trigger is present.
+
+| Decision layer | Additional acceptance evidence |
+|---|---|
+| Lifetime/allocation | Complete consumers, asynchronous last-use proof, dynamic-size guards, workspace and peak-overlap model, measured logical peak, cross-owner overwrite or sanitization, physical-memory claim kept separate |
+| Backing/fragmentation | Exact memory definitions, contiguity contract, same-snapshot extents, largest allocatable request, mapping/fault/translation cost, old-access revocation, residual-content protection, repeated allocation success |
+| Tiering/migration | Safe capacity, permitted destinations and paths, movement authorization, protection and sanitization contract, directional path measurements, residency invariants, prediction quality, movement amplification, thrashing, staging peak, tail stalls |
+| Reuse/eviction | Complete identity, validity, mutation epoch, owner/isolation scope, copy-on-write contract, saved work, effective footprint, interference, no-reuse comparison |
+| Persistent state | Growth and mutation contract, lineage, snapshot/branch/rollback rules, reconstruction equivalence, cleanup under outstanding sharers, durability non-goal |
+| Memory scheduling | Complete typed dependencies, readiness, critical path, pressure, contention, runtime feasibility, starvation/deadlock result, measured realized order |
+
+Require the policy's no-change or fallback alternative in the same measurement scope. Reject default paging, offload, recency eviction, reuse, proactive migration, or overlap when workload evidence does not beat that alternative.
+
+Separate projected, mechanism-feasible, and measured outcomes. A policy model does not become an optimization result until the runtime trace and end-to-end target confirm it.
+
 ## Benchmark confounders
 
 Common confounders include:
@@ -288,4 +313,5 @@ Before presenting the result, verify:
 - isolated and end-to-end results are both reported where relevant;
 - unsupported devices/shapes/layouts/value ranges are listed;
 - compiler/runtime evidence confirms the intended transformation;
+- every applicable resource/state acceptance row passes without forcing unrelated rows;
 - the decision is Keep / Guarded / Micro-only / Reject / Need more evidence.

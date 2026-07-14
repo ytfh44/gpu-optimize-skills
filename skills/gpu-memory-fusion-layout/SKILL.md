@@ -9,6 +9,8 @@ description: Load this skill and follow it when reducing GPU global-memory traff
 - Parent/orchestrator: [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md)
 - [gpu-performance-evidence](../gpu-performance-evidence/SKILL.md) — load first to prove memory traffic or launch boundaries matter
 - [gpu-numerical-safety](../gpu-numerical-safety/SKILL.md) — load when fusion changes order, precision, masks, or boundary semantics
+- [gpu-resource-lifetime-allocation](../gpu-resource-lifetime-allocation/SKILL.md) — load when the problem is cross-graph liveness, pooling, transient aliasing, workspace, or rematerialization planning
+- [gpu-virtual-memory-fragmentation](../gpu-virtual-memory-fragmentation/SKILL.md) — load when the remaining issue is physical backing, contiguity, page granularity, or fragmentation
 - [gpu-kernel-execution](../gpu-kernel-execution/SKILL.md) — load when a fusion changes registers, shared memory, occupancy, or execution mapping
 - [gpu-compiler-runtime](../gpu-compiler-runtime/SKILL.md) — load when a compiler may already fuse or materialize the operations
 - [gpu-optimization-validation](../gpu-optimization-validation/SKILL.md) — load to measure bytes, kernel count, peak memory, and end-to-end impact
@@ -20,6 +22,8 @@ Load linked skills only when their trigger applies. Do not duplicate their full 
 The highest-leverage GPU optimization is often removing work rather than accelerating an instruction: eliminate a full-buffer write/read pair, avoid a temporary, fold a layout conversion into an existing load/store, or collapse a cheap operator boundary into a hot producer or consumer.
 
 Do not fuse blindly. Fusion is beneficial only when the traffic and launches removed outweigh added register pressure, shared memory, divergence, instruction count, compilation cost, and lost reuse.
+
+Keep this skill focused on materialization, fusion, layout, and traffic within one producer-consumer pipeline. Route cross-graph lifetime overlap, allocator reuse, transient aliasing, workspace planning, and general retain-versus-rematerialize decisions to `gpu-resource-lifetime-allocation`. Route physical allocatability and fragmentation to `gpu-virtual-memory-fragmentation`.
 
 ## Materialization audit
 
@@ -257,6 +261,8 @@ Keep the operation close to the data lifetime. Avoid creating a new full-size in
 ## Allocation and peak-memory impact
 
 A faster fused kernel can still be a regression if it increases workspace, fragments the allocator, or forces a second live copy of a large tensor. Track peak live bytes, temporary count, allocator calls, and workspace requirements. For memory-constrained workloads, memory capacity is part of the target metric, not a secondary detail.
+
+Use these measurements to judge the local fusion. Do not turn this section into a global allocator plan. If the decision depends on nonlocal consumers, asynchronous last-use proof, all-graph peak overlap, pool sizing, physical extents, or cross-call retention, hand the audit to the matching resource-management specialist.
 
 ## Acceptance gate
 

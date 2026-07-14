@@ -1,8 +1,10 @@
 # GPU Code Optimizer Skill Suite
 
-A decomposed Agent Skills suite for evidence-driven GPU performance optimization.
+A decomposed Agent Skills suite for evidence-driven GPU compute, resource, and runtime-state optimization.
 
 Start with `gpu-code-optimizer`. It routes tasks to specialist skills while keeping each activated skill focused.
+
+The suite targets GPU compute and transferable resource/state-management problems. Graphics rendering pipelines are a non-goal: it does not cover rasterization, shader-stage design, ray tracing, visibility, blending, frame presentation, or visual-quality policy.
 
 ## Skills
 
@@ -10,28 +12,42 @@ Start with `gpu-code-optimizer`. It routes tasks to specialist skills while keep
 2. `gpu-performance-evidence` — baselines, profiling, roofline, bottleneck classification.
 3. `gpu-numerical-safety` — semantic classes, numerical error, guards and fallbacks.
 4. `gpu-memory-fusion-layout` — materialization, fusion, memory traffic, layout.
-5. `gpu-kernel-execution` — mapping, tiling, resources, synchronization, matrix units.
-6. `gpu-compiler-runtime` — framework compilers, graphs, launch/runtime overhead, transfers, multi-GPU.
-7. `gpu-reductions-scans` — reductions, scans, prefix/recurrence, streaming state.
-8. `gpu-training-autodiff` — backward pass, saved tensors, recomputation, gradients.
-9. `gpu-optimization-validation` — benchmark protocol, acceptance gates, failure records.
+5. `gpu-resource-lifetime-allocation` — liveness, peak overlap, transient aliasing, pooling, workspace, rematerialization.
+6. `gpu-virtual-memory-fragmentation` — allocatability, fragmentation, VMM, indirection, page granularity, compaction.
+7. `gpu-memory-tiering-migration` — placement, residency, prefetch, offload, replication, migration.
+8. `gpu-state-reuse-eviction` — identity, validity, sharing, admission, retention, invalidation, logical eviction.
+9. `gpu-persistent-state` — cross-call growth, mutation, ownership, snapshots, branches, checkpoints, cleanup.
+10. `gpu-memory-scheduling` — dependency-aware timing of compute, movement, rematerialization, barriers, and reclamation.
+11. `gpu-kernel-execution` — mapping, tiling, resources, synchronization, matrix units.
+12. `gpu-compiler-runtime` — framework compilers, graphs, launch/runtime mechanisms, transfers, multi-GPU.
+13. `gpu-reductions-scans` — reductions, scans, prefix/recurrence, algorithm-local streaming state.
+14. `gpu-training-autodiff` — backward pass, saved tensors, recomputation, gradients.
+15. `gpu-optimization-validation` — benchmark protocol, acceptance gates, failure records.
 
 Each directory under `skills/` is a standalone skill containing a `SKILL.md` file with YAML frontmatter (`name` and `description`). The layout follows the `skills/<name>/SKILL.md` convention recognized by the [vercel-labs/skills](https://github.com/vercel-labs/skills) CLI.
 
 ## Install
 
 ```bash
-# List skills in this repository without installing
-npx skills add <owner>/<repo> --list
+# Run these commands from a local checkout at an immutable, reviewed commit.
+# Pin the CLI package to a reviewed version as well.
+
+# List skills in the checked-out repository without installing
+npx --yes skills@<cli-version> add . --list
 
 # Install a single skill
-npx skills add <owner>/<repo> --skill gpu-code-optimizer
+npx --yes skills@<cli-version> add . --skill gpu-code-optimizer
 
 # Install every skill in the suite
-npx skills add <owner>/<repo> --skill '*'
+npx --yes skills@<cli-version> add . --skill '*'
 ```
 
-Replace `<owner>/<repo>` with this repository's GitHub path. Project-scoped installs land in `./<agent>/skills/`; pass `-g` for a global install.
+Replace `<cli-version>` with an explicitly reviewed package version. Review the checked-out `SKILL.md` files before wildcard installation; advance the repository commit and CLI version deliberately rather than following a mutable source. Project-scoped installs land in `./<agent>/skills/`; pass `-g` for a global install.
+
+## Maintainer resources
+
+- [Research foundations](references/research-foundations.md) records source mechanisms, generalizations, counterexamples, and limits. Skill bodies intentionally do not load it.
+- [Memory-management routing evaluations](evals/memory-management-routing.md) defines positive, boundary, and regression cases for fresh-context testing.
 
 ## Reporting Misleading Guidance
 
@@ -45,4 +61,4 @@ To make the issue actionable, include:
 - What the correct guidance should be, backed by a profiler trace, compiler IR, hardware counter, specification, or reference paper.
 - Whether the misleading instruction caused a correctness regression, a performance regression, or only a wasted optimization step.
 
-Reported issues wait for the maintainer's fix. Once a fix lands, run `npx skills update` to pull the corrected `SKILL.md`.
+Reported issues wait for the maintainer's fix. Once a fix lands, review it, advance the pinned repository commit deliberately, rerun validation, and reinstall from that checked-out revision.

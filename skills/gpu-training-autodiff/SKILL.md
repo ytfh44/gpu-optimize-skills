@@ -8,7 +8,10 @@ description: Load this skill and follow it when optimizing GPU training paths, b
 ## Skill navigation
 - Parent/orchestrator: [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md)
 - [gpu-numerical-safety](../gpu-numerical-safety/SKILL.md) — load for mixed precision, changed accumulation order, and gradient tolerances
-- [gpu-memory-fusion-layout](../gpu-memory-fusion-layout/SKILL.md) — load for activation memory, saved tensor layout, fusion, and recomputation tradeoffs
+- [gpu-memory-fusion-layout](../gpu-memory-fusion-layout/SKILL.md) — load for activation layout and local forward/backward fusion
+- [gpu-resource-lifetime-allocation](../gpu-resource-lifetime-allocation/SKILL.md) — load for general liveness, peak overlap, workspace, aliasing, and rematerialization planning
+- [gpu-memory-scheduling](../gpu-memory-scheduling/SKILL.md) — load when activation movement, reconstruction, gradient readiness, and communication must be jointly ordered
+- [gpu-persistent-state](../gpu-persistent-state/SKILL.md) — load only when cross-call state needs a generic growth, mutation, ownership, snapshot, or cleanup contract
 - [gpu-reductions-scans](../gpu-reductions-scans/SKILL.md) — load for gradient reductions, norms, scans, and recurrent backward passes
 - [gpu-compiler-runtime](../gpu-compiler-runtime/SKILL.md) — load for AOTAutograd/compiled backward, launch overhead, and distributed runtime
 - [gpu-optimization-validation](../gpu-optimization-validation/SKILL.md) — load for full training-step acceptance
@@ -28,6 +31,8 @@ Check whether backward can use: upstream gradient, anchor input/output, compact 
 Prefer: compact saved state over full saved tensors, recompute over load when cheaper than memory traffic, fused derivative application, high-throughput contractions for weight gradients, tile-local gradient partials with compact reduction.
 
 Do not remove saved values unless recomputation is correct for the exact dtype, mode, randomness, and numerical behavior.
+
+Keep training semantics, stochastic correctness, gradient requirements, and saved-value legality in this skill. Route the graph-wide lifetime and allocation plan for semantically eligible values to `gpu-resource-lifetime-allocation`, and route the exact ordering of reconstruction, movement, gradient readiness, and communication to `gpu-memory-scheduling`.
 
 ### Backward mandatory testing
 
@@ -76,6 +81,8 @@ For each saved tensor, ask:
 - does checkpointing shift peak memory enough to enable a larger batch and improve throughput?
 
 Recomputation is not automatically cheaper. A compute-heavy matmul or expensive transcendental chain may cost more than reading a saved activation. Use byte/FLOP estimates and benchmarks.
+
+This section decides whether training semantics permit reconstruction and which values backward requires. When several saved values, workspaces, and recomputations compete under a global memory budget, hand their lifetime and peak-overlap plan to `gpu-resource-lifetime-allocation`.
 
 ## Gradient correctness
 
@@ -151,6 +158,8 @@ When a forward rewrite changes lifetimes, inspect whether:
 
 Measure peak memory on the full training step, not only inside the optimized function.
 
+Use `gpu-resource-lifetime-allocation` for the general live-range and rematerialization plan. Use this skill to preserve forward/backward meaning, randomness, gradient correctness, optimizer behavior, and the training-mode objective.
+
 ## Checkpointing and recomputation strategy
 
 Activation checkpointing trades compute for memory. Choose checkpoint boundaries around expensive-to-store regions where recomputation cost is acceptable.
@@ -165,6 +174,8 @@ Evaluate:
 - compile/graph effects.
 
 The right objective may be samples/sec at a larger feasible batch, not latency at a fixed batch.
+
+When checkpoint placement changes the execution order or competes with offload, communication, or staging, route the joint timing decision to `gpu-memory-scheduling` after this skill establishes semantic legality.
 
 ## Gradient accumulation
 

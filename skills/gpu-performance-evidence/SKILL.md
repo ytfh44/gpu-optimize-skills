@@ -9,6 +9,12 @@ description: Load this skill and follow it when establishing a GPU performance b
 - Parent/orchestrator: [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md)
 - [gpu-code-optimizer](../gpu-code-optimizer/SKILL.md) — return to overall routing and priority selection
 - [gpu-memory-fusion-layout](../gpu-memory-fusion-layout/SKILL.md) — load when evidence points to memory traffic, temporaries, or layout cost
+- [gpu-resource-lifetime-allocation](../gpu-resource-lifetime-allocation/SKILL.md) — load when peak live overlap, workspaces, allocation reuse, or rematerialization matter
+- [gpu-virtual-memory-fragmentation](../gpu-virtual-memory-fragmentation/SKILL.md) — load when capacity and allocatability differ or backing policy is material
+- [gpu-memory-tiering-migration](../gpu-memory-tiering-migration/SKILL.md) — load when residency, placement, movement, or oversubscription matters
+- [gpu-state-reuse-eviction](../gpu-state-reuse-eviction/SKILL.md) — load when retained-state identity, validity, value, or logical eviction matters
+- [gpu-persistent-state](../gpu-persistent-state/SKILL.md) — load when cross-call growth, mutation, ownership, reconstruction, or cleanup matters
+- [gpu-memory-scheduling](../gpu-memory-scheduling/SKILL.md) — load when exposed memory stalls or joint compute/memory ordering matters
 - [gpu-kernel-execution](../gpu-kernel-execution/SKILL.md) — load when a specific hot kernel needs execution-level tuning
 - [gpu-compiler-runtime](../gpu-compiler-runtime/SKILL.md) — load when timeline gaps, compiler behavior, or runtime overhead dominate
 - [gpu-optimization-validation](../gpu-optimization-validation/SKILL.md) — load before accepting or reporting the optimization
@@ -102,6 +108,12 @@ Use these categories:
 - Work imbalance.
 - Compiler-generated overhead.
 - Allocation/deallocation overhead.
+- Capacity or allocatability failure.
+- Internal or external fragmentation.
+- Mapping, fault, or address-translation overhead.
+- Residency miss or migration overhead.
+- State lookup, invalidation, or retention interference.
+- Critical-path memory stall, staging pressure, starvation, or resource-wait cycle.
 
 Do not optimize for occupancy, arithmetic intensity, fusion, or vectorization blindly. Optimize the observed bottleneck. Re-classify the bottleneck after every optimization round — yesterday's bottleneck is rarely today's.
 
@@ -257,6 +269,25 @@ A kernel microbenchmark that looks faster but increases peak memory or allocatio
 
 ---
 
+## Conditional resource and state evidence
+
+Collect these fields only when the corresponding trigger is material. Do not burden an ordinary hot-kernel task with every resource-management audit.
+
+| Trigger | Required evidence |
+|---|---|
+| Lifetime/allocation | Resource sizes and growth, alignment, complete consumers, first/last-use frontiers, asynchronous completion, workspace, peak overlap, reconstruction cost |
+| Backing/fragmentation | Reserved, committed, resident, requested, charged, eligible-free bytes, largest allocatable extent, internal waste, extent distribution, mapping/fault/translation cost |
+| Tiering/migration | Tier capacity, directional bandwidth/latency/topology, working set, next-use distribution, transfer/staging bytes, exposed stalls, late or unused prefetch, reversals, movement amplification |
+| Reuse/eviction | Identity fields, validity predicate, mutation epoch, owner/isolation domain, valid-hit probability, work avoided, footprint, lookup, movement, maintenance, and interference |
+| Persistent state | Growth law, mutation model, version lineage, ownership, retention scope, checkpoint coverage, reconstruction cost, cleanup boundary |
+| Memory scheduling | Typed dependencies, readiness, critical path, exposed stalls, overlap windows, contention, staging lifetime, pressure-time, tail latency, starvation and resource-wait evidence |
+
+Use the same snapshot and workload scope for related memory quantities. Aggregate free bytes, nominal bandwidth, hit rate, overlap duration, and average latency are insufficient on their own.
+
+Separate measured, modeled, inferred, and assumed values. Every modeled policy needs a falsifying measurement before it becomes a finding.
+
+---
+
 ## Profiling source of truth
 
 Every performance claim must cite its evidence source:
@@ -324,5 +355,7 @@ Return a concise bottleneck statement with:
 - bottleneck class with evidence;
 - one ranked next experiment;
 - the measurement that would falsify the hypothesis.
+
+When a resource or runtime-state trigger applies, also name the primary decision layer: lifetime, backing, residency, logical reuse, state semantics, or scheduling. Do not collapse them into a generic “memory issue.”
 
 Then jump to the specialist skill that matches the evidence. Do not jump directly to low-level tuning merely because a GPU kernel exists.
