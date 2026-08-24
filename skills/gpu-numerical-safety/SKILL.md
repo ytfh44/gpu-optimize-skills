@@ -162,7 +162,7 @@ For any optimization that changes numerics, report **all** of the following:
 
 Do **not** report only max abs diff. Small denominators inflate relative error; large outputs hide absolute error. Report both.
 
-Relative error is undefined when |ref| is 0 or below a stated guard threshold. Report 'n/a (ref≈0)' or a scale-relative metric, and state the denominator policy. Never infer 'safe' from a single max abs diff; an empirical envelope is not a formal bound.
+Relative error is undefined when |ref| is 0 or below a stated guard threshold. Compute the relative-error rows (Max/Mean/P95/P99 relative error, Normalised error) only over the guarded denominator domain. For the excluded near-zero domain, report the excluded count and absolute or scale-relative metrics, and state the denominator policy. Never infer 'safe' from a single max abs diff; an empirical envelope is not a formal bound.
 
 ### Tolerance rule
 

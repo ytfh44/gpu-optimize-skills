@@ -335,7 +335,7 @@ Required for any finding that relies on a profiler, counter, or replay-based met
 - direct metric vs one derived from other counters;
 - multi-pass artifacts: metrics gathered across different replay passes may disagree or read out-of-range for short kernels, variable workloads, or spin/concurrent behavior.
 
-Treat such numbers as hypothetical until validated against an end-to-end timing.
+Require end-to-end timing for any claim about application-level benefit or speedup. When the collection-mode, replay, determinism, and overhead checks above pass, validated direct or derived kernel-level findings (occupancy, cache hits, stall reasons, tensor-core utilization) may be reported as findings even when end-to-end timing does not measure that property. Until those checks pass, treat the number as hypothetical.
 
 ---
 
