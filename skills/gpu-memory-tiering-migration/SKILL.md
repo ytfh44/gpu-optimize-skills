@@ -204,6 +204,8 @@ T_exposed_est ≈ max(0, T_transfer_realized_est - usable_slack)
 
 Reject an offload or prefetch when the inactive interval (or usable slack) is shorter than `T_transfer_realized` — or its planning estimate `T_transfer_realized_est` before the path is realized — and the affected consumer is critical, unless a different schedule creates enough verified slack. Reserve `T_exposed` for post-execution validation of the realized schedule.
 
+This rule assumes atomic / all-or-nothing readiness. For streamable or chunked resources, model chunk/tile readiness, pipeline fill/drain, and consumer service rate; an offload can remain fully or partially hidden when the first-chunk deadline and steady-state producer/consumer throughput are met, even if full-object transfer exceeds the inactive interval.
+
 ## Cost model
 
 Evaluate actions as value relative to no movement:
