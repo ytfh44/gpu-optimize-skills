@@ -95,7 +95,7 @@ A transformation is usually safe to fuse when each output element or tile depend
 - Row, column, channel, head, block, or tile parameters.
 - Small constants or coherent lookup tables.
 - Tile-local partial reductions.
-- Associative or monotonic streaming state.
+- Associative combine, or an explicitly proven composable summary/state representation. Monotonicity alone is insufficient: a monotone update (e.g. s_{t+1}=f(s_t,x_t)) need not admit a finite, combinable per-chunk summary, so do not treat 'monotone' as license to tile, reassociate, or compose across chunks. For parallel scan/combine, require a verified associative operator (see gpu-reductions-scans); pseudo-associative FP cases need an explicit numerical contract.
 - Values already loaded by the anchor.
 
 A transformation is usually risky to fuse when it requires:
