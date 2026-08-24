@@ -20,14 +20,19 @@ An optimization is not safe because the algebra is equivalent over real numbers.
 
 ## Optimization classification
 
-Every optimization must be labeled with exactly one risk class. This prevents treating "algebraically equivalent" rewrites as "bitwise identical" rewrites.
+Every optimization carries two independent layers: a **numerical class** (how far the numeric/mathematical semantics deviate from the reference) and, when material, **semantic/runtime flags** (orthogonal risks that are not about numeric deviation). The numerical class answers "how does the new implementation's numeric/mathematical semantics differ from the reference?"; the flags answer "what else about program behavior changed?" A single numerical class is no longer sufficient on its own — non-numeric risks must be recorded separately so they are not silently folded into C4.
+
+### Numerical class
 
 | Class | Name | Description |
 |:------|:-----|:------------|
 | **C1** | Strict semantic equivalent | Program semantics are unchanged and output is expected to be bitwise-identical against the reference. If compiler lowering, fusion, contraction, or instruction selection changes floating-point evaluation order, classify the change as C2 instead. |
 | **C2** | Floating-order changed | Mathematically equivalent but floating-point accumulation order differs. May produce small numerical differences whose magnitude depends on dtype, reduction length, input scale, and conditioning. |
 | **C3** | Approximate with tolerance | Introduces an explicit approximation (clipping, truncation, fast math, reduced precision). Must document the error bound and the value range where it holds. |
-| **C4** | Semantics changed | Behavior differs from the reference path in ways that go beyond floating-point reordering. Requires explicit user approval. Never the default path. |
+| **C4** | Semantics changed | Result-level program semantics differ from the reference (algorithm definition, boundary semantics, mask semantics, user-observable result, approximate objective, or model behavior). Requires explicit user approval. Never the default path. |
+| **N/A** | No numeric/semantic deviation | The change alters memory backing, pooling, page mapping, stream scheduling, VMM, cache eviction, or allocation reuse without changing the computed result. Use N/A when no numeric class applies; express any non-numeric risk through flags instead. |
+
+A change that does not alter the computed result (allocator/VMM/pooling/stream-scheduling) should be labeled **N/A**, not forced into C4.
 
 Rules:
 
@@ -35,12 +40,32 @@ Rules:
 - **C2 optimizations may become the default** only when their error stays within the existing accepted tolerance, does not require relaxing tests, and shows no systematic drift or boundary-case regression. If a C2 change requires tolerance relaxation, it must be gated like a fast path and paired with the reference fallback.
 - Any C2 or higher optimization **must** document the numerical difference explicitly: max abs error, max relative error, and which inputs produce the worst case.
 - Do not label a change C1 just because the math works out on paper. Floating-point arithmetic is not real arithmetic. Reduction trees, scan ordering, product chains, mask-before vs mask-after, and accumulate-then-broadcast vs broadcast-then-accumulate all change floating-point semantics.
+- Record **semantic/runtime flags** separately from the numerical class whenever a non-numeric risk is material. Only record flags that actually apply; do not emit an empty fixed list. Suggested flags: `nondeterministic`, `changes_nan_inf_behavior`, `changes_signed_zero_behavior`, `changes_atomic_order`, `changes_memory_visibility`, `changes_synchronization`, `changes_aliasing`, `changes_inplace_behavior`, `changes_address_stability`, `changes_layout_contract`, `changes_rng_stream`, `domain_restricted`, `architecture_restricted`, `approximate`, `cross_owner_state_sensitive`.
 
-## Scope of the C1–C4 labels
+## Optimization decision record
 
-The C1–C4 labels are a conversational shorthand for this skill suite. They may be spoken to the user or to a parent agent when reporting the risk class of a change.
+Capture each optimization as:
 
-The C1–C4 labels **must not** be written into the codebase. Do not put `C1`/`C2`/`C3`/`C4` into source comments, docstrings, identifiers, variable names, enum values, configuration keys, commit messages, branch names, tags, file names, or generated code. When the codebase itself must record the risk class, use a descriptive name (for example, `floating_point_reorder`, `approximate_with_tolerance`, `semantics_changed`) and keep the C1–C4 mapping in the surrounding conversation, pull request, or decision record instead.
+```text
+Optimization:
+- Numerical class: C1 / C2 / C3 / C4 / N/A
+- Semantic/runtime flags:
+  - <material flags only>
+- Domain:
+  - shape / dtype / layout / device / mode
+- Guard:
+  - <conditions under which the fast path is enabled>
+- Fallback:
+  - <name or description of the reference path>
+- Evidence:
+  - <profiler, IR, benchmark, or counter confirming the claim>
+```
+
+## Scope of the labels
+
+The numerical class (C1–C4, N/A) and semantic/runtime flags are conversational and review shorthand for this skill suite. They may be spoken to the user or to a parent agent when reporting the risk of a change.
+
+These labels **must not** be written into the codebase as bare `C1`/`C2`/`C3`/`C4`. Do not put bare class codes into source comments, docstrings, identifiers, variable names, enum values, configuration keys, commit messages, branch names, tags, file names, or generated code. When the codebase itself must record the risk, use a descriptive name (for example, `floating_point_reorder`, `approximate_with_tolerance`, `semantics_changed`) together with the relevant flags, and keep the numerical-class mapping in the surrounding conversation, pull request, or decision record instead.
 
 ---
 
