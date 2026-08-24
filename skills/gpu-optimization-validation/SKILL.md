@@ -89,7 +89,8 @@ Decision:
 - Problem: <what was slow / memory-heavy>
 - Bottleneck: <classified bottleneck>
 - Change: <concrete description>
-- Optimization class: C1 / C2 / C3 / C4
+- Numerical class: C1 / C2 / C3 / C4 / N/A
+- Semantic/runtime flags: <material flags only; see gpu-numerical-safety>
 - Why safe: <numerical / semantic justification>
 - Guard: <conditions enabling fast path>
 - Fallback: <path taken when guard fails>
@@ -144,7 +145,7 @@ When editing code:
 
 1. **Bottleneck hypothesis**: Classified bottleneck with evidence source.
 2. **Evidence**: Code, profiler output, IR, byte/FLOP reasoning, or hardware counter.
-3. **Optimization class**: C1 / C2 / C3 / C4 per proposed change.
+3. **Numerical class**: C1 / C2 / C3 / C4 / N/A per proposed change, plus any material semantic/runtime flags (see gpu-numerical-safety).
 4. **Numerical behavior changed?**: Yes / No, with justification.
 5. **Optimization plan**: Ranked by impact, each with guard conditions.
 6. **Concrete patch or pseudocode**.
@@ -166,7 +167,7 @@ When editing code:
 ### Answer format when generating optimized GPU code
 
 1. **Optimized code or pseudocode**.
-2. **Optimization class** (C1–C4).
+2. **Numerical class** (C1–C4, N/A) plus material semantic/runtime flags (see gpu-numerical-safety).
 3. **Assumptions** (hardware, framework, shapes, dtypes, value range).
 4. **Guard conditions**.
 5. **Fallback path**.

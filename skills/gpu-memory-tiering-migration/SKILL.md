@@ -193,15 +193,16 @@ consumer_ready_with_move    = R1
 T_exposed = max(0, R1 - R0)
 ```
 
-For planning-phase estimates only, approximate the exposed time and label it as an estimate:
+For planning-phase estimates only, model the realized transfer time from measured or modeled cost components rather than from the post-execution realized value:
 
 ```text
-T_exposed_est ≈ max(0, T_transfer_realized - usable_slack)
+T_transfer_realized_est = T_setup + T_dependency_wait + T_queue + T_copy_pipeline + T_sync   (each term modeled)
+T_exposed_est ≈ max(0, T_transfer_realized_est - usable_slack)
 ```
 
-`T_exposed_est` is not a measured value; confirm it against `T_exposed` once the path is realized.
+`T_transfer_realized_est` is the planning counterpart of `T_transfer_realized`; `T_exposed_est` is a planning estimate and must be confirmed against `T_exposed` once the path is realized.
 
-Reject an offload or prefetch when `T_exposed` (or `T_exposed_est` under a verified schedule) shows the inactive interval is shorter than the measured round trip and the affected consumer is critical, unless a different schedule creates enough verified slack.
+Reject an offload or prefetch when the inactive interval (or usable slack) is shorter than `T_transfer_realized` — or its planning estimate `T_transfer_realized_est` before the path is realized — and the affected consumer is critical, unless a different schedule creates enough verified slack. Reserve `T_exposed` for post-execution validation of the realized schedule.
 
 ## Cost model
 
