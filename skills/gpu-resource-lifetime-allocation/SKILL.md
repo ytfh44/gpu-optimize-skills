@@ -130,13 +130,15 @@ Record zero growth, large jumps, shrinkage, maximum growth, and repeated oscilla
 Permit two logical resources to share storage only when all conditions hold:
 
 - their semantic and storage requirements are compatible;
-- their live ranges cannot overlap in any feasible execution covered by the policy;
+- their live ranges cannot overlap under any feasible execution admitted by the policy (unconditional aliasing); OR the policy explicitly adds an ordering constraint (e.g. A_last_use → B_create) that makes a schedule-conditioned alias safe (schedule-conditioned aliasing);
 - all asynchronous completion paths are proven;
 - no retained view, pointer, or external owner observes the reuse;
 - the new owner is authorized for the storage and no old mapping or alias can still access it;
 - cross-owner reuse fully overwrites or sanitizes residual contents before exposure;
 - content-preservation and initialization requirements are compatible;
 - dynamic sizes remain within guarded bounds.
+
+Schedule-conditioned aliasing is owned by gpu-memory-scheduling, which supplies the legal ordering constraint; this skill records that constraint as a precondition rather than rejecting the alias. Distinguish the two classes when reporting eligibility.
 
 Pooling groups compatible requests; it does not prove physical efficiency. Pass size classes, alignment, demand envelope, and reuse trace to `gpu-virtual-memory-fragmentation`.
 

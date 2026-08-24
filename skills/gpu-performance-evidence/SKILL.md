@@ -59,7 +59,7 @@ Do not benchmark only on random-normal inputs with a single shape. Test:
 - Training and inference paths (if the code is used for both).
 - Gradient computation (if the code is differentiated).
 
-An optimization that only wins on hand-picked shapes is not ready for the main path.
+An optimization that only wins on hand-picked shapes must not become an unguarded general default; a shape-specialized kernel behind a guard/flag in the dispatcher is acceptable when its domain is stated.
 
 ---
 
@@ -322,7 +322,20 @@ Every performance claim must cite its evidence source:
 | **Hardware counters** | Occupancy, bandwidth, cache hit, tensor-core utilization, stall reasons. |
 | **Correctness test** | Error statistics, tolerance compliance. |
 
-Inference is not evidence. A hypothesis becomes a finding only when a profiler, IR, benchmark, or hardware counter confirms it.
+Classify every performance claim by epistemic strength — direct observation > derived measurement > analytical model > inference > assumption — and do not promote a claim past its weakest link. A profiler or counter result is still a measurement, not ground truth: collection can change the experiment.
+
+### Measurement validity
+
+Required for any finding that relies on a profiler, counter, or replay-based metric:
+
+- collection mode (trace / sampling / replay);
+- replay count and whether Range / Application Range Replay preserved concurrency;
+- deterministic across replays, or variance noted;
+- profiler overhead and whether it altered the timed path;
+- direct metric vs one derived from other counters;
+- multi-pass artifacts: metrics gathered across different replay passes may disagree or read out-of-range for short kernels, variable workloads, or spin/concurrent behavior.
+
+Require end-to-end timing for any claim about application-level benefit or speedup. When the collection-mode, replay, determinism, and overhead checks above pass, validated direct or derived kernel-level findings (occupancy, cache hits, stall reasons, tensor-core utilization) may be reported as findings even when end-to-end timing does not measure that property. Until those checks pass, treat the number as hypothetical.
 
 ---
 

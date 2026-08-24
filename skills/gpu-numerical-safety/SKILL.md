@@ -28,11 +28,13 @@ Every optimization carries two independent layers: a **numerical class** (how fa
 |:------|:-----|:------------|
 | **C1** | Strict semantic equivalent | Program semantics are unchanged and output is expected to be bitwise-identical against the reference. If compiler lowering, fusion, contraction, or instruction selection changes floating-point evaluation order, classify the change as C2 instead. |
 | **C2** | Floating-order changed | Mathematically equivalent but floating-point accumulation order differs. May produce small numerical differences whose magnitude depends on dtype, reduction length, input scale, and conditioning. |
-| **C3** | Approximate with tolerance | Introduces an explicit approximation (clipping, truncation, fast math, reduced precision). Must document the error bound and the value range where it holds. |
+| **C3** | Approximate with tolerance | Introduces an explicit approximation (clipping, truncation, fast math, reduced precision). Must document the error characterization and the value range where it holds, separating: proven/specification bound (e.g. ULP guarantee), analytical bound (derived), empirical envelope (in-domain max/P99 from tests), and the uncovered domain where no guarantee applies. |
 | **C4** | Semantics changed | Result-level program semantics differ from the reference (algorithm definition, boundary semantics, mask semantics, user-observable result, approximate objective, or model behavior). Requires explicit user approval. Never the default path. |
 | **N/A** | No numeric/semantic deviation | The change alters memory backing, pooling, page mapping, stream scheduling, VMM, cache eviction, or allocation reuse without changing the computed result. Use N/A when no numeric class applies; express any non-numeric risk through flags instead. |
 
 A change that does not alter the computed result (allocator/VMM/pooling/stream-scheduling) should be labeled **N/A**, not forced into C4.
+
+C1 and N/A have disjoint domains: C1 applies only to a value-producing computational transformation expected bitwise-identical; N/A applies to changes outside numerical transformation (allocator/VMM/pooling/stream-scheduling). Label a runtime change C1 only if it is itself a compute transform; otherwise N/A. Do not double-label the same change.
 
 Rules:
 
@@ -159,6 +161,8 @@ For any optimization that changes numerics, report **all** of the following:
 | Systematic bias direction (new > ref or new < ref) | ✓ |
 
 Do **not** report only max abs diff. Small denominators inflate relative error; large outputs hide absolute error. Report both.
+
+Relative error is undefined when |ref| is 0 or below a stated guard threshold. Compute the relative-error rows (Max/Mean/P95/P99 relative error, Normalised error) only over the guarded denominator domain. For the excluded near-zero domain, report the excluded count and absolute or scale-relative metrics, and state the denominator policy. Never infer 'safe' from a single max abs diff; an empirical envelope is not a formal bound.
 
 ### Tolerance rule
 

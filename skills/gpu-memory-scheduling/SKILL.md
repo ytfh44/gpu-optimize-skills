@@ -115,7 +115,7 @@ ready_i(t) = predecessors_complete
              and required_capacity_available
 ```
 
-Let `r_i` be earliest readiness, `s_i` start, `f_i` finish, and `d_i(S)` duration under concurrent set `S`:
+Let `r_i` be earliest readiness, `s_i` start, `f_i` finish, and `d_i(S)` duration under concurrent set `S`. Evaluate the formulas below for a **fixed candidate concurrency set S**: S is an input to the slack computation, not its output. Slack is solved inside schedule optimization (pick S → compute d_i(S) and kappa → slack → decide overlap → update S), not computed once from isolated durations. Never derive overlap from isolated duration and then feed the lengthened duration back as if independent.
 
 ```text
 r_i = max(release_i, max_j[f_j + lag_ji])
