@@ -399,6 +399,76 @@ Fail a case when the agent assumes that paging, offload, least-recently-used evi
 
 **Pass condition:** state the rendering-pipeline non-goal and offer to analyze only a clearly isolated, transferable compute or resource-state problem.
 
+## Cross-skill conflict resolution
+
+Use these cases to test whether an agent arbitrates when two specialists impose conflicting requirements, instead of letting one override the other by default. Give a behavior agent only the raw prompt and `gpu-code-optimizer`. Do not include the remaining fields in the test prompt.
+
+**Expected behavior:** correctness and determinism contracts dominate performance claims; each specialist keeps its established ownership (numerical safety for semantics, validation for keep/reject, scheduling for movement order, lifetime for liveness); conflicts are resolved by recording a guard plus a fallback, never by dropping one requirement.
+
+### Numerical gate versus performance hot path
+
+**Raw user prompt**
+
+> A C2 accumulation reorder is the dominant kernel and clearly worth it, but gpu-numerical-safety says it must be gated unless the tolerance contract holds. Skip the gate; performance matters most here.
+
+**Expected primary skill:** `gpu-numerical-safety`
+
+**Allowed secondary skills:** `gpu-performance-evidence`, `gpu-optimization-validation`.
+
+**Must inspect:** whether the existing tolerance and determinism contract is actually met; whether error stays within accepted bounds; whether a fallback exists.
+
+**Forbidden assumptions:** a performance win justifies dropping a numerical gate; "hot path" overrides the correctness contract; gating is optional when the speedup is large.
+
+**Pass condition:** keep numerical safety primary; if the contract holds, allow the default with evidence; otherwise gate behind a guard with the reference fallback. Performance cannot waive the contract.
+
+### Scheduling order versus lifetime alias safety
+
+**Raw user prompt**
+
+> We want to alias A and B to save memory, but lifetime analysis says their live ranges can overlap in some feasible schedules. The scheduler can add A_last_use -> B_create to prevent overlap. Is that enough?
+
+**Expected primary skill:** `gpu-resource-lifetime-allocation`
+
+**Allowed secondary skills:** `gpu-memory-scheduling`.
+
+**Must inspect:** whether the ordering constraint removes the overlap; which specialist owns the constraint; whether it is recorded as a precondition.
+
+**Forbidden assumptions:** lifetime alone owns scheduling order; an aliasing candidate must be safe under every feasible execution; the constraint cannot make the alias safe.
+
+**Pass condition:** accept a schedule-conditioned alias once the ordering constraint is recorded as a precondition owned by the scheduling specialist; distinguish it from unconditional aliasing.
+
+### Tiering capacity relief versus critical-path latency
+
+**Raw user prompt**
+
+> Offloading this buffer frees 8 GB, but the consumer is on the critical path and the inactive interval is shorter than the transfer. Capacity is the priority, so offload anyway.
+
+**Expected primary skill:** `gpu-memory-tiering-migration`
+
+**Allowed secondary skills:** `gpu-memory-scheduling`, `gpu-performance-evidence`.
+
+**Must inspect:** T_exposed (or T_exposed_est under a verified schedule), critical-path slack, whether another tier/compression/rematerialization creates enough slack.
+
+**Forbidden assumptions:** capacity relief justifies latency regression; asynchronous transfer is hidden; peak bandwidth predicts completion time.
+
+**Pass condition:** model the consumer-side exposure; reject or tightly guard the offload unless a verified schedule creates sufficient slack. Capacity relief does not override critical-path latency.
+
+### Ownership boundary when two specialists claim the same change
+
+**Raw user prompt**
+
+> This optimization touches both a floating-point reorder and a kernel fusion. Which specialist decides the final keep/reject, and who owns the guard?
+
+**Expected primary skill:** `gpu-optimization-validation`
+
+**Allowed secondary skills:** `gpu-numerical-safety`, `gpu-memory-fusion-layout`, `gpu-performance-evidence`.
+
+**Must inspect:** semantic class (numerical safety), fusion legality (fusion-layout), measured benefit (performance-evidence), and final acceptance (validation).
+
+**Forbidden assumptions:** the fastest specialist owns the decision; fusion layout defines numerical safety; performance evidence defines correctness.
+
+**Pass condition:** keep numerical safety primary for semantics, fusion layout for legality, performance-evidence for benefit, and validation for the final keep/reject record with guard and fallback.
+
 ## Evaluation acceptance
 
 Accept the suite only when:
