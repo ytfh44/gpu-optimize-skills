@@ -46,15 +46,20 @@ The C1–C4 labels **must not** be written into the codebase. Do not put `C1`/`C
 
 ## Default-safe-path rule
 
-Any optimization that changes floating-point stability, accumulation order, truncation behavior, mask semantics, boundary handling, NaN/Inf propagation, denormal treatment, determinism, or synchronization semantics **must not** unconditionally replace the original path.
+A numerical or semantic change may replace the default path **only when it satisfies the program's existing numerical and determinism contract** without weakening tests, relaxing accepted tolerances, or expanding the accepted semantic domain.
 
-Such optimizations must be:
+- **C1** (bitwise-identical strict semantic equivalent): may be the default path.
+- **C2** (numerically-equivalent reassociation — reduction tree, FMA contraction, mathematically-equivalent reordering): may become the default path when the project's correctness contract is already tolerance-based, the change stays within that tolerance, requires no test relaxation, preserves any deterministic-mode contract, and shows no systematic drift or boundary-case regression on real and pathological inputs. Under such a contract, C2 does **not** automatically require opt-in.
+- **C3** (explicit approximation — precision reduction, truncation, fast transcendental, clipping, quantization, approximate reciprocal): default should be gated / opt-in unless the upstream API already defines this approximate contract.
+- **C4** (result-level program semantics changed): always requires explicit approval.
 
-- Gated behind a parameter, compile-time flag, runtime check, or configuration switch.
-- Paired with a documented fallback to the original correct implementation.
+A change that does **not** satisfy the existing contract must be:
+
+- Gated behind a parameter, compile-time flag, runtime check, or configuration switch;
+- Paired with a documented fallback to the original correct implementation;
 - Accompanied by guard conditions (see the guard-condition template below).
 
-The default code path must remain safe and correct. Fast paths are opt-in.
+The default code path must remain safe and correct. **Bitwise different does not equal semantically unsafe** — but a change becomes the default only through compatibility with the accepted contract, never by the size of the diff.
 
 ---
 
