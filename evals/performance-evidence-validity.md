@@ -26,7 +26,7 @@ Fail a case when the agent reports a multi-pass replay counter as the real perfo
 
 **Forbidden assumptions:** a counter from one replay pass equals the original execution; multi-pass metrics are consistent and in-range; a profiler delta is an end-to-end speedup.
 
-**Pass condition:** report collection mode and replay artifacts, mark the number hypothetical until validated against an end-to-end timing, and require a real timeline before claiming improvement.
+**Pass condition:** require end-to-end timing for any application-level benefit or speedup claim; when collection-mode, replay, determinism, and overhead checks pass, allow reporting validated direct or derived kernel-level findings (occupancy, cache hits, stall reasons) even if end-to-end timing does not measure that property; until those checks pass, treat the number as hypothetical.
 
 ## Occupancy is not the target
 
