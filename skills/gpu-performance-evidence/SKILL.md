@@ -203,17 +203,19 @@ Claiming "uses Tensor Cores" without evidence is a red flag.
 
 ### Small-matrix matmul warning
 
-When matmul, convolution, or contraction operates on very small dimensions (e.g., 64×64 or smaller), the bottleneck is typically **not** FLOPs. It is launch overhead, runtime dispatch, memory traffic, synchronization, or batching granularity.
+When a matmul, convolution, or contraction operates on very small dimensions (e.g., 64×64 or smaller), the bottleneck is **frequently** launch overhead, runtime dispatch, memory traffic, synchronization, or insufficient grid parallelism rather than raw FLOPs. This is an empirical tendency, not a hard rule keyed to the matrix size.
 
-For small matrices, prioritize:
+For small matrices, tile tuning should **not** be assumed to be the first optimization lever. First determine whether launch/dispatch overhead, memory traffic, insufficient parallelism, library dispatch, or kernel execution dominates. The following remain valid candidates when profiler evidence shows meaningful kernel-level headroom:
 
 - Batching multiple small operations together.
 - Fusing the small matmul into a larger kernel.
 - Reducing operator boundaries around the matmul.
-- Using grouped GEMM or batched GEMM.
+- Using grouped GEMM, batched GEMM, split-K, or sliced-K.
 - Changing layout so small tasks become large contiguous tasks.
+- Persistent scheduling to amortize dispatch and prologue cost.
+- Selecting a different library algorithm when the heuristic chose a suboptimal kernel for this shape corner.
 
-Do not tune tile sizes for a 64×64 matmul. The overhead of dispatching it dwarfs the arithmetic.
+**Rule: matrix dimensions alone do not classify the bottleneck.** A 64×64 GEMM may be launch-bound, bandwidth-bound, compute-relevant, or dominated by library dispatch depending on batch, K, fusion, dtype, hardware, and library path.
 
 ---
 
@@ -221,13 +223,31 @@ Do not tune tile sizes for a 64×64 matmul. The overhead of dispatching it dwarf
 
 Small matrix operations often have low arithmetic work per launch, so dispatch, batching granularity, memory traffic, and surrounding operator boundaries can dominate. Do not turn this into a fixed size rule. A 64×64 GEMM can be launch-bound, bandwidth-bound, or compute-relevant depending on batch count, fusion, reuse, data type, hardware, library path, and whether many matrices are grouped into one launch.
 
-Before hand-tuning a small matrix kernel, check:
+Before concluding a small GEMM is or is not worth kernel-level tuning, **record** the following from a profiler trace — do not infer any of it from the matrix size alone:
+
+- M, N, K, and dtype;
+- batch / group count;
+- kernel count and dominant kernel duration;
+- CTA count and SM utilization;
+- achieved matrix-pipe / tensor-core utilization;
+- launch gap and total launch overhead;
+- current library / kernel dispatch path;
+- whether split-K, sliced-K, grouped GEMM, or a persistent strategy is in use;
+- the GEMM's share of end-to-end request time.
+
+Then verify the bottleneck hypothesis:
 
 - whether grouped/batched GEMM reduces dispatch cost;
 - whether the operation can be fused into a larger producer or consumer;
 - whether data layout causes copies or prevents a library fast path;
 - whether the library call is already close to the end-to-end optimum;
-- whether tile tuning changes the measured hot path rather than only a microbenchmark.
+- whether tile tuning, split-K, sliced-K, grouped execution, persistent scheduling, or library algorithm selection changes the measured hot path rather than only a microbenchmark.
+
+#### Small-GEMM eval
+
+Given: a 64×64×8192 FP16 GEMM occupies 35% of request time; tensor-core utilization is high but only a few CTAs run and most SMs are idle.
+
+Expected analysis considers: split-K, sliced-K, grouped GEMM, persistent scheduling, library algorithm selection, and fusion of neighboring operations. It does **not** conclude "this is 64×64, so do not tune the kernel."
 
 ## Kernel-count audit
 

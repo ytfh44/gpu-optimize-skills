@@ -232,7 +232,7 @@ Do not keep tuning because a lower-level knob exists. The objective is the user'
 9. Estimate saved bytes, reduced peak, avoided movement or stalls, and added work.
 10. Estimate added registers, local memory, metadata, staging, synchronization, contention, and branch cost.
 11. Implement the smallest useful change.
-12. **Classify the optimization** (C1–C4; see gpu-numerical-safety).
+12. **Classify the optimization** using the numerical class (C1–C4, N/A) plus any material semantic/runtime flags (see gpu-numerical-safety).
 13. **Add guard conditions** and document the fallback.
 14. Run correctness tests (forward + backward if applicable).
 15. Report error statistics (see gpu-numerical-safety).

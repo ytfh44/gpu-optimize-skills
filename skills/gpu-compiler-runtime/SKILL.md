@@ -38,7 +38,7 @@ For JAX/XLA, PyTorch Inductor, TensorFlow Graph, TVM, MLIR, Triton, or OpenXLA c
 - **Einsum/matmul/conv lowering**: Does `einsum` actually become a `dot_general`, `cublas` call, or `triton` kernel? Check IR.
 - **Reshape/transpose/permute/view**: Are these zero-cost layout reinterpretations or do they trigger copies?
 - **Elementwise chain fusion**: Is the compiler fusing the chain? Check with `jax.jit(f).lower(...).compile(...).as_text()` or FX graph.
-- **Graph breaks**: Does a Python construct or unsupported op break the compiled graph? Each break = extra kernel launch.
+- **Graph breaks**: Does a Python construct or unsupported op break the compiled graph? A graph break splits or terminates a compiled region — it is a potential optimization boundary, not a kernel-count unit.
 - **Dynamic indexing, gather, scatter**: Do these prevent fusion?
 - **Backward graph**: Does autograd produce extra intermediate tensors? Check the backward HLO / FX graph.
 - **Compile time vs execution time**: Separate them in benchmarks.
@@ -46,6 +46,20 @@ For JAX/XLA, PyTorch Inductor, TensorFlow Graph, TVM, MLIR, Triton, or OpenXLA c
 - **IR verification**: After claiming an optimization, inspect the lowered IR to confirm the change actually took effect.
 
 ---
+
+### Graph break analysis
+
+A graph break splits or terminates a compiled region; it is a potential optimization boundary, not a kernel-count unit. For each material graph break, inspect the resulting compiled regions and runtime timeline rather than counting breaks:
+
+- Does the break execute GPU work or CPU-only work (e.g., logging, pure-Python bookkeeping)?
+- How many compiled regions result, and what eager operators execute between them?
+- What kernel-count delta is actually observed on the timeline?
+- What tensors materialize across the break?
+- Does the break introduce host-device synchronization?
+- Does it prevent fusion or graph capture that a larger captured graph would allow?
+- Is the break executed once or repeatedly inside a loop (so one source break may appear many times at runtime)?
+
+Do not infer a kernel-count delta from the graph-break count.
 
 ## Graph capture and compilation boundaries
 
