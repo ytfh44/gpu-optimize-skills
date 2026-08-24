@@ -142,19 +142,32 @@ Treat transient oversubscription as feasible only when scheduled outbound moveme
 
 ### Directional path cost
 
-For resource `x` on link `e`:
+For resource `x` on link `e`, measure the *realized* per-hop cost, not the nominal isolated latency:
 
 ```text
 T_e(x) = L_e + bytes_e(x) / B_effective(e) + Q_e
 ```
 
-For a multi-hop path, report bounds until the scheduler proves overlap:
+where `Q_e` is only the queueing/staging component observable on that link; it does not by itself capture cross-link contention, registration, mapping, or multi-hop dependency.
+
+For a multi-hop path, `max_e T_e` and `sum_e T_e` are useful **structural reference points only when the per-hop costs are measured under compatible conditions**. They are **not** universal lower and upper bounds once queueing, shared-link contention, staging dependencies, retries, or pipelining alter the costs:
 
 ```text
 max_e T_e <= T_path <= sum_e T_e + T_setup
+  (valid only under no-shared-contention, no-staging-dependency, no-retry, no-pipelining assumptions)
 ```
 
-Prefer measured path time. Include staging copies, registration, mapping, synchronization, and shared-link queueing.
+With pipelining, `T_path` may approach the slowest stage rather than the sum. With shared or serially-staged links, it can approach or exceed the naive sum. Prefer measured path time, and model the realized path explicitly:
+
+```text
+T_path_realized = T_setup
+               + T_dependency_wait
+               + T_queue
+               + T_copy_pipeline
+               + T_sync
+```
+
+where `T_copy_pipeline` is computed from topology and the actual overlap achieved, not from a single-hop nominal figure.
 
 ### Transfer budget and exposed cost
 
@@ -166,13 +179,29 @@ U(e, W) = sum_a bytes(a, e) / [B_sustainable(e) * W]
 
 Set the allowed utilization from workload headroom, not a fixed constant.
 
-Estimate exposed movement:
+Estimate exposed movement. Distinguish three quantities — they are not interchangeable:
+
+- `T_transfer_isolated`: copy/migration latency measured alone, with no competition. Baseline data only.
+- `T_transfer_realized`: actual transfer completion time, including queueing, staging, registration, mapping, shared-link contention, bandwidth interference, source readiness, destination-capacity wait, synchronization, and multi-hop path dependency. This is the quantity to schedule against.
+- `T_exposed`: how much the transfer delays the critical consumer's readiness — the end-to-end quantity that matters.
+
+Define the consumer's readiness with and without the move:
 
 ```text
-T_unhidden = max(0, T_ready - available_slack)
+consumer_ready_without_move = R0
+consumer_ready_with_move    = R1
+T_exposed = max(0, R1 - R0)
 ```
 
-Reject an offload or prefetch when the inactive interval is shorter than the measured round trip and the affected consumer is critical, unless a different schedule creates enough verified slack.
+For planning-phase estimates only, approximate the exposed time and label it as an estimate:
+
+```text
+T_exposed_est ≈ max(0, T_transfer_realized - usable_slack)
+```
+
+`T_exposed_est` is not a measured value; confirm it against `T_exposed` once the path is realized.
+
+Reject an offload or prefetch when `T_exposed` (or `T_exposed_est` under a verified schedule) shows the inactive interval is shorter than the measured round trip and the affected consumer is critical, unless a different schedule creates enough verified slack.
 
 ## Cost model
 
