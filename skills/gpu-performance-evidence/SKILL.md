@@ -339,6 +339,44 @@ Require end-to-end timing for any claim about application-level benefit or speed
 
 ---
 
+## Causal probes and prediction records
+
+Use a causal probe when the same symptom has more than one plausible explanation. Establish **Baseline controls** first: hold the same workload, device state, correctness contract, measurement scope, and unrelated code constant. A source edit is not a causal probe if the compiler, dispatcher, or runtime removes or bypasses it; confirm compiler/dispatcher/runtime reachability through generated code or the realized schedule before interpreting the result.
+
+Before running a probe or variant, record both the target-metric prediction and an independent mechanism prediction:
+
+```text
+Prediction record:
+- Hypothesis ID: <stable identifier>
+- Baseline ID: <immutable snapshot and reset/restore procedure>
+- Baseline controls: <same workload, device state, correctness contract, measurement scope, and unrelated code>
+- Observed symptom: <fact, scope, and evidence source>
+- Proposed mechanism: <causal path from the relation to the cost>
+- Required preconditions: <mapping, semantic, resource, or runtime facts>
+- Predicted target-metric effect: <direction, magnitude range if justified, and scope>
+- Predicted independent evidence: <counter, trace, IR, allocation, or correctness movement>
+- Cheapest falsifying probe: <one-factor observation or variant>
+- Evidence source/scope: <trace, counter, IR, benchmark, and exact workload scope>
+- Confounders and controls: <what could mimic the result>
+- Cost: <implementation, compilation, and measurement cost>
+- Confidence: <high / medium / low, with update reason>
+- Outcome: <not run / supports / weakens / surprises / unreachable>
+```
+
+Choose probes by diagnostic value rather than expected speedup alone. Prefer the least expensive probe that separates several plausible mechanisms and can still affect the user's target metric. Keep a probe that only observes a mechanism distinct from a production variant that changes behavior; compare production variants independently against the same baseline.
+
+Make the controls operational rather than ceremonial. When they can affect the result, record warm-up and compilation state, synchronization scope, allocator and cache state, clock/power state, input seed and data distribution, contention, and profiler-validity checks. If a control cannot be held constant, mark the comparison as confounded and lower confidence instead of treating it as a clean intervention.
+
+Classify the result after measurement:
+
+- **metric and mechanism move as predicted**: increase confidence, but still check correctness, scope, and downstream cost before promotion;
+- **neither moves**: the mechanism is likely falsified, the perturbation did not reach the machine, or the signal is below measurement noise; verify reachability before editing again;
+- **mechanism moves but target metric does not**: inspect a compensating cost, an unimportant phase, or a downstream bottleneck; keep the mechanism finding separate from an application-speedup claim;
+- **target metric moves without the predicted mechanism**: audit measurement scope, compiler/runtime changes, cache and clock state, and other confounders, then write a different mechanism;
+- **movement has the opposite sign**: preserve the observation as high-value residual evidence and investigate the newly exposed cost instead of discarding it automatically.
+
+Update the prediction record with the observation, uncertainty, confidence change, and next falsifier. A counter movement does not override an unchanged end-to-end target, and an unchanged counter does not prove that a valid target improvement is impossible. After an accepted change, re-profile the path and regenerate predictions because the limiting resource and the validity of old negative results may have changed.
+
 ## End-to-end priority rule
 
 If an isolated kernel or ops-level benchmark accelerates but end-to-end wall time does **not** improve, the change cannot be claimed as a performance improvement. It is a local micro-optimization at best.
@@ -386,7 +424,7 @@ Return a concise bottleneck statement with:
 - baseline numbers and measurement method;
 - dominant phase/kernel/operator;
 - bottleneck class with evidence;
-- one ranked next experiment;
+- one ranked next probe or one small round of independent variants, each tied to a hypothesis;
 - the measurement that would falsify the hypothesis.
 
 When a resource or runtime-state trigger applies, also name the primary decision layer: lifetime, backing, residency, logical reuse, state semantics, or scheduling. Do not collapse them into a generic “memory issue.”

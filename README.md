@@ -48,6 +48,11 @@ Replace `<cli-version>` with an explicitly reviewed package version. Review the 
 
 - [Research foundations](references/research-foundations.md) records source mechanisms, generalizations, counterexamples, and limits. Skill bodies intentionally do not load it.
 - [Memory-management routing evaluations](evals/memory-management-routing.md) defines positive, boundary, and regression cases for fresh-context testing.
+- [Optimization-search autonomy evaluations](evals/optimization-search-autonomy.md) tests hypothesis portfolios, causal probes, mapping reconstruction, scoped negative results, and composition revalidation without requiring named techniques.
+
+## Maintainer checks
+
+Run the document-contract tests with `python -m unittest discover -s tests -v`. The fresh-context evaluations remain behavior tests: give an agent only the raw prompt and the parent Skill, then grade the reasoning contract described in the evaluation file.
 
 ## Reporting Misleading Guidance
 

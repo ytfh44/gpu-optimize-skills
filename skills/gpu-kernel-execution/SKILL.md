@@ -64,6 +64,65 @@ Choose the work decomposition by answering:
 
 Prefer simple ownership rules that make memory access and boundary masks obvious. Complex persistent or work-stealing schedules should be justified by measured imbalance or dispatch overhead.
 
+## Mapping reconstruction and constraint-derived candidates
+
+Before naming a transformation, reconstruct the machine-visible relations for the hot region. Use the smallest mapping that explains the evidence:
+
+```text
+logical work
+  -> ownership / decomposition
+  -> execution instances
+  -> hardware scheduling slots
+
+logical values
+  -> layout / address mapping
+  -> memory transactions
+  -> banks / cache sets / pages / channels
+
+logical operations
+  -> compiler lowering
+  -> instructions
+  -> execution pipelines
+
+dependency DAG
+  -> schedule
+  -> resource occupancy over time
+```
+
+For each arrow, record **observed mapping/evidence**, **evidence source/scope**, **assumptions and unknowns**, and **preconditions**. For address mappings, write the actual index or address relation and transaction granularity; for dependencies, list readiness, lifetime, ordering, and barrier/happens-before edges. Look for a measured many-to-one collision, one-to-many expansion, serialization, quantized underfill, duplicated materialization or movement, avoidable lifetime overlap, unnecessary synchronization, hidden conversion or repacking, resource pressure that displaces parallelism, or an improvement that harms a downstream consumer. Do not infer a hardware relation from source syntax alone.
+
+Derive candidates from constraints rather than from a technique checklist:
+
+1. State the cost to reduce and the mapping or dependency that creates it.
+2. List the invariants that must remain true: semantic and numerical behavior, ownership, alignment, transaction and layout contracts, boundary masks, ordering, synchronization, aliasing, and portability.
+3. Identify the remaining degrees of freedom after those invariants are fixed: who owns work, how logical values are arranged, when movement or computation occurs, what is materialized, and which supported shapes take a guarded path.
+4. Change one relation at a time and predict both the target metric and independent mechanism evidence.
+5. Enumerate the new cost: instructions, registers, local/shared memory, metadata, transactions, synchronization, divergence, tail waste, compile variants, capacity, or downstream locality.
+6. Keep a readable reference mapping and a guard/fallback for unsupported shapes, alignments, layouts, devices, or semantic domains.
+
+Use this candidate record before implementing a material variant:
+
+```text
+Candidate:
+- Observed mapping/evidence: <what the trace, compiler output, counters, or source proves>
+- Evidence source/scope: <measurement source, workload, device, and collection state>
+- Assumptions and unknowns: <unverified mapping or runtime facts>
+- Preconditions: <facts required before the candidate is valid>
+- Bad relation: <mapping or dependency causing the cost>
+- Preserved invariants: <semantic, numerical, boundary, bounds, ownership, alignment, transaction/layout, ordering, synchronization, aliasing, portability>
+- Remaining degrees of freedom: <what can change>
+- Changed relation: <one-factor transformation>
+- Predicted independent evidence: <trace, counter, IR, or resource movement>
+- Predicted target effect: <metric and scope>
+- New cost: <resource, synchronization, compiler, launch/dispatch, code-size, or downstream cost with units and scope>
+- Verification: <IR/ISA, generated code, address trace, counter, or barrier evidence to collect>
+- Guard and fallback: <validity domain and reference path>
+- Cheapest falsifier: <small probe or variant>
+- Status: proposed / supported / weakened / rejected / reopenable
+```
+
+Prefer the candidate that most cleanly distinguishes hypotheses, not the one with the most familiar name. If the mapping cannot be reconstructed, report the missing observation and run a probe before asserting that a particular cache, bank, matrix unit, or scheduling mechanism is responsible.
+
 ## Occupancy and resource pressure
 
 Occupancy is a tool, not the goal.

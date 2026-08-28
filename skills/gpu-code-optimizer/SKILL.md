@@ -89,13 +89,65 @@ Answer unknown questions with a measurement or a specialist handoff. Do not fill
 2. Record the target hardware, software stack, shapes, dtypes, layouts, modes, and target metric.
 3. Measure the current end-to-end path and identify the dominant cost.
 4. Run the resource and state preflight when its trigger is present.
-5. Select one bottleneck hypothesis and one smallest useful change.
+5. Select a small portfolio of bottleneck hypotheses when the evidence is ambiguous; make each variant one smallest useful change.
 6. Estimate what work, traffic, capacity pressure, or exposed stall the change removes and what cost it adds.
 7. Classify semantic risk and define guards/fallbacks before promoting a fast path.
 8. Implement or propose the change.
 9. Verify that the compiler/runtime actually produced the intended lowering or mechanism.
 10. Re-run correctness, isolated benchmarks, and end-to-end benchmarks.
-11. Re-classify the bottleneck. Keep the change only if it improves the user's actual target metric.
+11. Re-classify the bottleneck after each accepted change. Keep a change only if it improves the user's actual target metric.
+
+## Hypothesis portfolio and search rounds
+
+Use a portfolio when the bottleneck is ambiguous, the first change fails, or several mechanisms could explain the same symptom. A small obvious issue may still take the short path. The portfolio exists to gain information per round, not to create a large experiment matrix.
+
+Start each round from one named, immutable baseline snapshot. Record a **Baseline ID** (commit/configuration hash or equivalent), code revision, target device and software stack, workload matrix, correctness contract, benchmark state, target metric, and the evidence already available. Also record the **reset/restore procedure** that returns the workspace, compiled artifacts, allocator/cache state, inputs, and runtime mode to that baseline. Reuse that exact scope for every independent variant in the round and perform a **per-variant baseline check** before trusting a delta. If the baseline is not reproducible, repair the baseline before comparing variants.
+
+For each plausible mechanism, write a hypothesis record before editing:
+
+```text
+Hypothesis:
+- Observed symptom: <measured fact and scope>
+- Proposed mechanism: <mapping, dependency, or resource interaction>
+- Required preconditions: <facts that must hold>
+- Predicted target-metric effect: <direction and affected scope>
+- Predicted independent evidence: <counter, trace, IR, allocation, or correctness movement>
+- Cheapest falsifying experiment: <smallest probe or one-factor variant>
+- Confounders: <other explanations and controls>
+- Implementation/measurement cost: <rough cost and risk>
+- Confidence: <high / medium / low, with the observation that would update it>
+- Status: proposed / supported / weakened / rejected / reopenable
+```
+
+Choose the next round by diagnostic value: prefer cheap experiments that distinguish several plausible mechanisms and still have meaningful potential impact. Keep one factor per variant. Run several independent variants in one round when practical; parallelize them only when the environment preserves measurement isolation, otherwise interleave or repeat them against the same baseline. Do not combine unrelated changes merely to save a benchmark. Label probes that only observe the mechanism separately from variants that change production behavior.
+
+After the round, classify the prediction residual:
+
+- target metric and mechanism evidence move as predicted → support the hypothesis;
+- neither moves → the mechanism is likely wrong or the perturbation did not reach the machine;
+- mechanism evidence moves but the target metric does not → search for a compensating cost, an unimportant phase, or a downstream bottleneck;
+- target metric moves without the predicted mechanism → inspect confounders and write a new mechanism;
+- movement has the opposite sign → preserve it as high-value evidence and investigate, rather than discarding it as noise.
+
+Update the hypothesis records with the observation, explicit confidence change, and next falsifier. Keep rejected hypotheses in the validation ledger with their evidence scope; do not repeat them unless a reopening condition changed, such as the compiler lowering, workload domain, limiting resource, or accepted composition. After accepting a change, re-profile and re-classify the bottleneck before selecting the next portfolio; re-test any composition separately from its constituent variants.
+
+The round summary should be short and executable:
+
+```text
+Search round:
+- Baseline ID: <immutable scope identifier and reference result>
+- Reset/restore procedure: <how every variant returns to the baseline>
+- Hypotheses: <IDs and predicted discriminators>
+- Variants: <one factor per variant, all from the baseline>
+- Per-variant baseline check: <confirmed before/after each comparison>
+- Results: <target metric plus predicted/observed mechanism evidence>
+- Confidence updates: <what each result changed>
+- Residuals: <surprises and compensating-cost candidates>
+- Disposition: <Keep as default / Keep behind guard/flag / Keep as local micro-optimization only / Reject / Need more evidence>
+- Next re-profile or reopening condition: <what changes the next decision>
+```
+
+When profiling or hardware evidence is unavailable, state what is observed versus inferred, preserve the reference path, and choose the smallest measurement that would discriminate the leading hypotheses. Do not turn a plausible mechanism into a fact merely because a familiar optimization name fits it.
 
 ## Quick execution checklist
 
@@ -226,18 +278,18 @@ Do not keep tuning because a lower-level knob exists. The objective is the user'
 3. Identify the dominant bottleneck.
 4. Audit memory traffic and intermediate materialization (intermediate-tensor table, the intermediate-tensor audit in gpu-memory-fusion-layout).
 5. Run the six-question resource and state preflight when triggered.
-6. Select the anchor operation or dominant resource-state decision.
+6. Select one or more anchor operations or dominant resource-state decisions and associate each with its hypothesis.
 7. Find producer-epilogue, consumer-prologue, lifetime, backing, residency, reuse, state, or scheduling candidates at the measured layer.
 8. Find tile-local partial-reduction and layout-conversion candidates when applicable.
 9. Estimate saved bytes, reduced peak, avoided movement or stalls, and added work.
 10. Estimate added registers, local memory, metadata, staging, synchronization, contention, and branch cost.
-11. Implement the smallest useful change.
+11. Implement one factor per variant from the same baseline, preserving the reference path.
 12. **Classify the optimization** using the numerical class (C1–C4, N/A) plus any material semantic/runtime flags (see gpu-numerical-safety).
 13. **Add guard conditions** and document the fallback.
 14. Run correctness tests (forward + backward if applicable).
 15. Report error statistics (see gpu-numerical-safety).
 16. Benchmark (isolated + end-to-end).
-17. Re-classify the bottleneck using gpu-performance-evidence.
+17. Re-classify the bottleneck using gpu-performance-evidence after each accepted change or composition.
 18. Keep the change only if it improves the user's target metric.
 19. Record the decision (see gpu-optimization-validation).
 20. Repeat on the next bottleneck.

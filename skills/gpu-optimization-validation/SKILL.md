@@ -24,6 +24,61 @@ Load linked skills only when their trigger applies. Do not duplicate their full 
 
 Treat every optimization as an experiment with an explicit hypothesis, guard domain, fallback, and acceptance criterion. The final artifact must let another engineer reproduce the claim and know when not to use the fast path.
 
+## Evidence-scoped experiment ledger
+
+Maintain a compact ledger for every material probe or variant. The ledger is the memory of the search: it prevents repeated dead ends without turning a conditional rejection into a permanent blacklist.
+
+Use one entry per one-factor variant and anchor all entries in the same baseline when they belong to one round:
+
+```text
+Experiment ledger entry:
+- ID: <stable identifier>
+- Baseline ID: <stable identifier for the immutable snapshot>
+- Baseline: <immutable snapshot: code, device, stack, workload, benchmark state, reference result>
+- Reset/restore: <procedure that returns code, artifacts, allocator/cache state, inputs, and runtime mode>
+- Evidence state / workload domain: <shapes, dtypes, layouts, modes, profiler/counter validity>
+- Hypothesis / proposed mechanism: <causal explanation>
+- Variant: <one changed relation, or observation-only probe>
+- Prediction: <target metric and independent mechanism evidence>
+- Falsifier: <observation that weakens or rejects the hypothesis>
+- Observation: <result, uncertainty, and residual>
+- Confounders checked: <compiler reachability, timing scope, cache/clock state, contention, etc.>
+- Confidence: <high / medium / low, with update reason>
+- Disposition: Keep as default / Keep behind guard/flag / Keep as local micro-optimization only / Reject / Need more evidence
+- Rejection reason: <which prediction or acceptance gate failed>
+- Reopen if: <specific changed fact that invalidates this rejection>
+- Reopened from: <prior ledger entry ID, or none>
+- Composition dependencies: <accepted or pending variants that may change the result>
+- Constituent IDs: <variant IDs when this entry is a composition>
+- Interaction result: <combined delta, uncertainty, and non-additive cost>
+- New bottleneck: <post-composition or post-acceptance limiting resource>
+```
+
+Use the exact disposition vocabulary from the **Acceptance matrix** below. If a result is not yet attributable, reproducible, or sufficiently measured, use **Need more evidence** rather than silently treating it as rejected or accepted.
+
+### Rejection and reopening rules
+
+Record a rejected hypothesis with its evidence state, falsifying observation, and confounders checked. Do not rerun it merely because the next optimization round has started. Reopen it only when a relevant fact changes, such as:
+
+- compiler lowering, generated code, runtime schedule, or measurement validity;
+- hardware, shape, dtype, layout, or representative workload domain;
+- an accepted change moving the limiting resource or removing the cost that caused rejection;
+- a semantic, numerical, guard, or fallback contract becoming different with explicit review.
+
+When reopening, create a new ledger entry linked to the old one and compare it against the new baseline. Preserve the old result as historical evidence; do not overwrite it or present the new result as if it invalidated the original scope.
+
+### Composition revalidation
+
+Independent wins do not prove that a combination wins. Keep variants attributable to the same baseline, then validate a composition as a new experiment:
+
+1. Re-check that each constituent's guard, fallback, correctness contract, and intended lowering still hold together.
+2. Measure the composition against the same baseline, record the constituent IDs and interaction result/uncertainty, and report the interaction rather than an assumed sum of isolated deltas.
+3. Re-run resource, allocation, synchronization, compile/capture, and end-to-end checks for costs that only appear together.
+4. Re-profile the combined path and record the new bottleneck or limiting resource.
+5. Keep, guard, or reject the composition independently; retain useful constituents when the interaction is the problem.
+
+If benchmark budget is tight, use a staged decision: finish the cheapest discriminating probes first, then test only compositions that remain plausible and relevant to the target metric. A composition that cannot be attributed, reproduced, or explained remains **Need more evidence**, not an automatic default.
+
 ## Representative benchmark matrix
 
 Benchmark at least:
@@ -315,4 +370,4 @@ Before presenting the result, verify:
 - unsupported devices/shapes/layouts/value ranges are listed;
 - compiler/runtime evidence confirms the intended transformation;
 - every applicable resource/state acceptance row passes without forcing unrelated rows;
-- the decision is Keep / Guarded / Micro-only / Reject / Need more evidence.
+- the decision is Keep as default / Keep behind guard/flag / Keep as local micro-optimization only / Reject / Need more evidence.
